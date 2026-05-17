@@ -1,14 +1,29 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 from app.api.endpoints import residents, rules, shifts, auth, organizations, constraints
+
+load_dotenv()
 
 app = FastAPI(title="Call Companion API")
 
 # Configure CORS for frontend
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    for url in frontend_url.split(","):
+        url = url.strip()
+        if url and url not in origins:
+            origins.append(url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
