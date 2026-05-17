@@ -6,4 +6,9 @@ asyncpg
 python-dotenv
 pydantic
 pydantic-settings
-psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+google-auth
+greenlet
+email-validator

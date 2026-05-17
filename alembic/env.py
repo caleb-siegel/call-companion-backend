@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import Base and models for autogenerate
-from backend.app.database import Base
-from backend.app.models.models import Resident, Shift, DayOffRequest, Vacation, NightFloat, SchedulingRule
+from app.database import Base
+from app.models.models import Organization, User, Shift, DayOffRequest, Vacation, NightFloat, SchedulingRule
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
