@@ -62,6 +62,13 @@ class ShiftOut(ShiftBase, TimestampModel):
     organization_id: UUID
     assigned_residents: List[UserOut]
 
+class ShiftBulkItem(BaseModel):
+    id: Optional[str] = None
+    date: datetime
+    type: ShiftType
+    locked: bool = False
+    assignedResidentIds: List[UUID]
+
 # Scheduling Rule
 class SchedulingRuleBase(BaseModel):
     text: str
