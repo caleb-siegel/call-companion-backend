@@ -119,7 +119,7 @@ class NightFloatBase(BaseModel):
     block_end: datetime
 
 class NightFloatCreate(NightFloatBase):
-    organization_id: UUID
+    organization_id: Optional[UUID] = None
     resident_ids: List[UUID]
 
 class NightFloatOut(NightFloatBase, TimestampModel):
