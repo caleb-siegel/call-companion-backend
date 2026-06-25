@@ -48,30 +48,31 @@ async def create_day_off_request(
             detail="Regular members can only create day-off requests for themselves."
         )
         
-    # Enforce limit of 1 request per month
-    from datetime import datetime
-    import calendar
-    
-    req_year = request_in.date.year
-    req_month = request_in.date.month
-    start_date = datetime(req_year, req_month, 1)
-    last_day = calendar.monthrange(req_year, req_month)[1]
-    end_date = datetime(req_year, req_month, last_day, 23, 59, 59)
-    
-    existing_result = await db.execute(
-        select(DayOffRequest).where(
-            DayOffRequest.user_id == target_user_id,
-            DayOffRequest.date >= start_date,
-            DayOffRequest.date <= end_date
+    # Enforce limit of 1 request per month for non-admin users
+    if current_user.role != UserRole.ADMIN:
+        from datetime import datetime
+        import calendar
+        
+        req_year = request_in.date.year
+        req_month = request_in.date.month
+        start_date = datetime(req_year, req_month, 1)
+        last_day = calendar.monthrange(req_year, req_month)[1]
+        end_date = datetime(req_year, req_month, last_day, 23, 59, 59)
+        
+        existing_result = await db.execute(
+            select(DayOffRequest).where(
+                DayOffRequest.user_id == target_user_id,
+                DayOffRequest.date >= start_date,
+                DayOffRequest.date <= end_date
+            )
         )
-    )
-    existing_req = existing_result.scalars().first()
-    if existing_req:
-        existing_date_str = existing_req.date.strftime("%B %d, %Y")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User already has a day-off request for {existing_date_str}. Only 1 request is allowed per month."
-        )
+        existing_req = existing_result.scalars().first()
+        if existing_req:
+            existing_date_str = existing_req.date.strftime("%B %d, %Y")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User already has a day-off request for {existing_date_str}. Only 1 request is allowed per month."
+            )
         
     new_req = DayOffRequest(
         date=request_in.date,
