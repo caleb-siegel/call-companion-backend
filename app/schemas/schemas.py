@@ -95,6 +95,7 @@ class TokenData(BaseModel):
 # Constraints
 class DayOffRequestBase(BaseModel):
     date: datetime
+    description: Optional[str] = None
 
 class DayOffRequestCreate(DayOffRequestBase):
     user_id: Optional[UUID] = None
