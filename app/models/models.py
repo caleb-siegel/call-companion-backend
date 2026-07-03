@@ -29,6 +29,7 @@ class ShiftType(enum.Enum):
     FRIDAY = "friday"
     SATURDAY = "saturday"
     SUNDAY = "sunday"
+    HOLIDAY = "holiday"
 
 class RuleType(enum.Enum):
     MUST = "must"

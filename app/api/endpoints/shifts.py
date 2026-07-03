@@ -35,8 +35,14 @@ async def create_shift(
     new_shift = Shift(**shift_in.dict())
     db.add(new_shift)
     await db.commit()
-    await db.refresh(new_shift)
-    return new_shift
+    
+    # Eagerly load the relationship before serializing to avoid MissingGreenlet error
+    result = await db.execute(
+        select(Shift)
+        .where(Shift.id == new_shift.id)
+        .options(selectinload(Shift.assigned_residents))
+    )
+    return result.scalars().first()
 
 @router.put("/bulk", response_model=List[ShiftOut])
 async def bulk_save_shifts(
@@ -95,6 +101,17 @@ async def bulk_save_shifts(
             
         saved_shifts.append(shift)
         
+    # Delete any existing shifts within the published date range that are not in the payload (deleted custom shifts)
+    if shifts_in:
+        min_date = min(s.date for s in shifts_in)
+        max_date = max(s.date for s in shifts_in)
+        incoming_keys = {(s.date.date(), s.type) for s in shifts_in}
+        
+        for s in existing_shifts:
+            if min_date <= s.date <= max_date:
+                if (s.date.date(), s.type) not in incoming_keys:
+                    await db.delete(s)
+
     await db.commit()
     
     # Query all the saved shifts back with relationship eagerly loaded to prevent MissingGreenlet errors during serialization
@@ -118,6 +135,7 @@ async def update_shift(
     result = await db.execute(
         select(Shift)
         .where(Shift.id == shift_id, Shift.organization_id == admin_user.organization_id)
+        .options(selectinload(Shift.assigned_residents))
     )
     shift = result.scalars().first()
     if not shift:
@@ -128,8 +146,14 @@ async def update_shift(
         setattr(shift, field, value)
     
     await db.commit()
-    await db.refresh(shift)
-    return shift
+    
+    # Eagerly load the relationship before serializing to avoid MissingGreenlet error
+    final_result = await db.execute(
+        select(Shift)
+        .where(Shift.id == shift.id)
+        .options(selectinload(Shift.assigned_residents))
+    )
+    return final_result.scalars().first()
 
 @router.put("/{shift_id}/assign", response_model=ShiftOut)
 async def assign_residents(
@@ -173,6 +197,25 @@ async def delete_all_shifts(
     )
     await db.commit()
     return {"message": "All shifts successfully deleted"}
+
+@router.delete("/{shift_id}", response_model=dict)
+async def delete_shift(
+    shift_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(get_admin_user)
+):
+    """Delete a single shift (Admin only)."""
+    result = await db.execute(
+        select(Shift)
+        .where(Shift.id == shift_id, Shift.organization_id == admin_user.organization_id)
+    )
+    shift = result.scalars().first()
+    if not shift:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
+    
+    await db.delete(shift)
+    await db.commit()
+    return {"message": "Shift successfully deleted"}
 
 
 
