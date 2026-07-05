@@ -89,13 +89,15 @@ async def bulk_save_shifts(
             shift = existing_map[shift_key]
             shift.locked = s_in.locked
             shift.assigned_residents = assigned
+            shift.note = s_in.note
         else:
             shift = Shift(
                 organization_id=admin_user.organization_id,
                 date=s_in.date,
                 type=s_in.type,
                 locked=s_in.locked,
-                assigned_residents=assigned
+                assigned_residents=assigned,
+                note=s_in.note
             )
             db.add(shift)
             

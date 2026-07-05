@@ -86,6 +86,7 @@ class Shift(Base):
     date: Mapped[datetime] = mapped_column(DateTime) # Changed from Date to DateTime for consistency and updated_at tracking
     type: Mapped[ShiftType] = mapped_column(Enum(ShiftType))
     locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

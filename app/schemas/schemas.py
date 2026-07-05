@@ -48,6 +48,7 @@ class ShiftBase(BaseModel):
     date: datetime
     type: ShiftType
     locked: bool = False
+    note: Optional[str] = None
 
 class ShiftCreate(ShiftBase):
     organization_id: UUID
@@ -56,6 +57,7 @@ class ShiftUpdate(BaseModel):
     date: Optional[datetime] = None
     type: Optional[ShiftType] = None
     locked: Optional[bool] = None
+    note: Optional[str] = None
 
 class ShiftOut(ShiftBase, TimestampModel):
     id: UUID
@@ -68,6 +70,7 @@ class ShiftBulkItem(BaseModel):
     type: ShiftType
     locked: bool = False
     assignedResidentIds: List[UUID]
+    note: Optional[str] = None
 
 # Scheduling Rule
 class SchedulingRuleBase(BaseModel):
