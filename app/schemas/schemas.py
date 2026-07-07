@@ -32,6 +32,8 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase, TimestampModel):
     id: UUID
     organization_id: UUID
+    google_connected: bool
+    google_calendar_id: Optional[str] = None
 
 # Organization
 class OrganizationBase(BaseModel):

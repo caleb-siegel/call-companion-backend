@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from app.api.endpoints import residents, rules, shifts, auth, organizations, constraints
+from app.api.endpoints import residents, rules, shifts, auth, organizations, constraints, google_auth
 
 load_dotenv()
 
@@ -41,3 +41,4 @@ app.include_router(constraints.router, prefix="/constraints", tags=["constraints
 app.include_router(residents.router, prefix="/residents", tags=["residents"])
 app.include_router(rules.router, prefix="/rules", tags=["rules"])
 app.include_router(shifts.router, prefix="/shifts", tags=["shifts"])
+app.include_router(google_auth.router, prefix="/google", tags=["google_auth"])

@@ -1,5 +1,6 @@
 from typing import List
 from uuid import UUID
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.models.models import User, Shift
 from app.schemas.schemas import ShiftOut, ShiftCreate, ShiftUpdate, ShiftBulkItem
 from app.api.deps import get_current_user, get_admin_user
+from app.services.google_calendar import sync_user_shifts_to_google
 
 router = APIRouter()
 
@@ -116,6 +118,41 @@ async def bulk_save_shifts(
 
     await db.commit()
     
+    # Sync Google Calendars for affected users
+    if shifts_in:
+        min_date = min(s.date for s in shifts_in)
+        max_date = max(s.date for s in shifts_in)
+        
+        affected_user_ids = set()
+        for s_in in shifts_in:
+            affected_user_ids.update(s_in.assignedResidentIds)
+        for s in existing_shifts:
+            if min_date <= s.date <= max_date:
+                for r in s.assigned_residents:
+                    affected_user_ids.add(r.id)
+
+        if affected_user_ids:
+            users_res = await db.execute(
+                select(User).where(User.id.in_(list(affected_user_ids)))
+            )
+            users_to_sync = users_res.scalars().all()
+            for user in users_to_sync:
+                if user.google_calendar_id:
+                    user_shifts_res = await db.execute(
+                        select(Shift)
+                        .join(Shift.assigned_residents)
+                        .where(
+                            User.id == user.id,
+                            Shift.date >= min_date,
+                            Shift.date <= max_date
+                        )
+                    )
+                    user_shifts = user_shifts_res.scalars().all()
+                    try:
+                        await sync_user_shifts_to_google(user, user_shifts, min_date, max_date, db)
+                    except Exception as e:
+                        print(f"Error syncing Google Calendar for user {user.id}: {e}")
+    
     # Query all the saved shifts back with relationship eagerly loaded to prevent MissingGreenlet errors during serialization
     saved_ids = [s.id for s in saved_shifts]
     final_result = await db.execute(
@@ -183,9 +220,37 @@ async def assign_residents(
     )
     residents = residents_result.scalars().all()
     
+    previous_residents = list(shift.assigned_residents)
+    
     shift.assigned_residents = residents
     await db.commit()
     await db.refresh(shift)
+    
+    # Sync both previous and new residents
+    affected_users = set(previous_residents + residents)
+    for user in affected_users:
+        if user.google_calendar_id:
+            start_of_month = shift.date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if start_of_month.month == 12:
+                end_of_month = start_of_month.replace(year=start_of_month.year + 1, month=1) - timedelta(days=1)
+            else:
+                end_of_month = start_of_month.replace(month=start_of_month.month + 1) - timedelta(days=1)
+                
+            user_shifts_res = await db.execute(
+                select(Shift)
+                .join(Shift.assigned_residents)
+                .where(
+                    User.id == user.id,
+                    Shift.date >= start_of_month,
+                    Shift.date <= end_of_month
+                )
+            )
+            user_shifts = user_shifts_res.scalars().all()
+            try:
+                await sync_user_shifts_to_google(user, user_shifts, start_of_month, end_of_month, db)
+            except Exception as e:
+                print(f"Error syncing Google Calendar for user {user.id}: {e}")
+                
     return shift
 
 @router.delete("", response_model=dict)
@@ -210,13 +275,42 @@ async def delete_shift(
     result = await db.execute(
         select(Shift)
         .where(Shift.id == shift_id, Shift.organization_id == admin_user.organization_id)
+        .options(selectinload(Shift.assigned_residents))
     )
     shift = result.scalars().first()
     if not shift:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
     
+    assigned_residents = list(shift.assigned_residents)
+    shift_date = shift.date
+    
     await db.delete(shift)
     await db.commit()
+    
+    # Sync Google Calendars for the affected residents
+    for user in assigned_residents:
+        if user.google_calendar_id:
+            start_of_month = shift_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if start_of_month.month == 12:
+                end_of_month = start_of_month.replace(year=start_of_month.year + 1, month=1) - timedelta(days=1)
+            else:
+                end_of_month = start_of_month.replace(month=start_of_month.month + 1) - timedelta(days=1)
+                
+            user_shifts_res = await db.execute(
+                select(Shift)
+                .join(Shift.assigned_residents)
+                .where(
+                    User.id == user.id,
+                    Shift.date >= start_of_month,
+                    Shift.date <= end_of_month
+                )
+            )
+            user_shifts = user_shifts_res.scalars().all()
+            try:
+                await sync_user_shifts_to_google(user, user_shifts, start_of_month, end_of_month, db)
+            except Exception as e:
+                print(f"Error syncing Google Calendar for user {user.id}: {e}")
+                
     return {"message": "Shift successfully deleted"}
 
 

@@ -64,6 +64,15 @@ class User(Base):
     
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
     
+    google_access_token: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    google_refresh_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    google_token_expiry: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    google_calendar_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    @property
+    def google_connected(self) -> bool:
+        return self.google_refresh_token is not None
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
