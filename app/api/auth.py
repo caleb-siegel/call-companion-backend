@@ -37,3 +37,25 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = 15
+
+def create_password_reset_token(user_id: str) -> str:
+    expires_delta = timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    to_encode = {
+        "sub": str(user_id),
+        "type": "password_reset",
+        "exp": datetime.utcnow() + expires_delta
+    }
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_password_reset_token(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "password_reset":
+            return None
+        user_id: str = payload.get("sub")
+        return user_id
+    except JWTError:
+        return None
+
